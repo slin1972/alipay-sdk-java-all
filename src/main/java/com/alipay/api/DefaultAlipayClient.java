@@ -81,6 +81,8 @@ public class DefaultAlipayClient extends AbstractAlipayClient {
         this.decryptor = new DefaultDecryptor(encryptKey);
     }
 
+
+
     public DefaultAlipayClient(CertAlipayRequest certAlipayRequest) throws AlipayApiException {
         super(certAlipayRequest.getServerUrl(), certAlipayRequest.getAppId(), certAlipayRequest.getFormat(),
                 certAlipayRequest.getCharset(), certAlipayRequest.getSignType(), certAlipayRequest.getCertPath(),

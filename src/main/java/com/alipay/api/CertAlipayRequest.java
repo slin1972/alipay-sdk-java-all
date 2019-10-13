@@ -18,7 +18,20 @@ public class CertAlipayRequest {
     private String encryptor;
     private String encryptType;
     private String proxyHost;
-    private int    proxyPort;
+    private int proxyPort;
+
+
+    public void setAlipayPublicCert(String alipayPublicCert) {
+        this.alipayPublicCertPath = "content: " + alipayPublicCert;
+    }
+
+    public void setRootCert(String rootCert) {
+        this.rootCertPath = "content: " + rootCert;
+    }
+
+    public void setCert(String cert) {
+        this.certPath = "content: " + cert;
+    }
 
     public String getServerUrl() {
         return serverUrl;

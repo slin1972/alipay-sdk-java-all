@@ -30,29 +30,30 @@ import java.util.concurrent.ConcurrentHashMap;
  * @version $Id: AbstractAlipayClient.java, v 0.1 2018-07-03 10:45:21 liuqun.lq Exp $
  */
 public abstract class AbstractAlipayClient implements AlipayClient {
+    public static final String CONTENT = "content:";
     private String serverUrl;
     private String appId;
     private String prodCode;
-    private String format      = AlipayConstants.FORMAT_JSON;
-    private String signType    = AlipayConstants.SIGN_TYPE_RSA;
+    private String format = AlipayConstants.FORMAT_JSON;
+    private String signType = AlipayConstants.SIGN_TYPE_RSA;
     private String encryptType = AlipayConstants.ENCRYPT_TYPE_AES;
 
     private String charset;
 
     private int connectTimeout = 3000;
-    private int readTimeout    = 15000;
+    private int readTimeout = 15000;
 
-    private String      proxyHost;
-    private int         proxyPort;
+    private String proxyHost;
+    private int proxyPort;
     private SignChecker signChecker;
 
-    private String                                     appCertSN;
-    private String                                     alipayCertSN;
-    private String                                     alipayRootCertSN;
-    private String                                     rootCertContent;
-    private X509Certificate                            cert;
+    private String appCertSN;
+    private String alipayCertSN;
+    private String alipayRootCertSN;
+    private String rootCertContent;
+    private X509Certificate cert;
     private ConcurrentHashMap<String, X509Certificate> alipayPublicCertMap;
-    private ConcurrentHashMap<String, String>          alipayPublicKeyMap;
+    private ConcurrentHashMap<String, String> alipayPublicKeyMap;
 
     static {
         //清除安全设置
@@ -142,7 +143,11 @@ public abstract class AbstractAlipayClient implements AlipayClient {
     private X509Certificate getCert(String certPath) throws AlipayApiException {
         InputStream inputStream = null;
         try {
-            inputStream = new FileInputStream(certPath);
+            if (certPath.startsWith(CONTENT)) {
+                inputStream = new ByteArrayInputStream(certPath.substring(CONTENT.length()).getBytes());
+            } else {
+                inputStream = new FileInputStream(certPath);
+            }
             CertificateFactory cf = CertificateFactory.getInstance("X.509");
             X509Certificate cert = (X509Certificate) cf.generateCertificate(inputStream);
             return cert;
@@ -181,9 +186,11 @@ public abstract class AbstractAlipayClient implements AlipayClient {
 
     private String readFileToString(String rootCertPath) throws AlipayApiException {
         try {
+            if (rootCertPath.startsWith(CONTENT)) {
+                return rootCertPath.substring(CONTENT.length());
+            }
             File file = new File(rootCertPath);
-            String client = FileUtils.readFileToString(file);
-            return client;
+            return FileUtils.readFileToString(file);
         } catch (IOException e) {
             throw new AlipayApiException(e);
         }
@@ -276,7 +283,7 @@ public abstract class AbstractAlipayClient implements AlipayClient {
             throw new AlipayApiException("cert check fail: Body is Empty!");
         }
         if (certItem.getCert() == null && responseIsSucess
-                && !request.getApiMethodName().equals(AlipayOpenAppAlipaycertDownloadRequest.ALIPAYCERT_DOWNLOAD)) {
+            && !request.getApiMethodName().equals(AlipayOpenAppAlipaycertDownloadRequest.ALIPAYCERT_DOWNLOAD)) {
             throw new AlipayApiException("cert check fail: ALIPAY_CERT_SN is Empty!");
         }
         String alipayPublicKey = null;
@@ -285,8 +292,8 @@ public abstract class AbstractAlipayClient implements AlipayClient {
                 //如果返回的支付宝公钥证书序列号与本地支付宝公钥证书序列号不匹配，通过返回的支付宝公钥证书序列号去网关拉取新的支付宝公钥证书
                 AlipayOpenAppAlipaycertDownloadRequest alipayRequest = new AlipayOpenAppAlipaycertDownloadRequest();
                 alipayRequest.setBizContent("{" +
-                        "\"alipay_cert_sn\":\"" + certItem.getCert() + "\"" +
-                        "  }");
+                    "\"alipay_cert_sn\":\"" + certItem.getCert() + "\"" +
+                    "  }");
 
                 Map<String, Object> rt = doPost(alipayRequest, null, null, this.appCertSN);
                 // 解析实际串
@@ -336,22 +343,22 @@ public abstract class AbstractAlipayClient implements AlipayClient {
             if (alipayPublicCertMap.containsKey(certItem.getCert())) {
                 alipayPublicKey = this.alipayPublicKeyMap.get(certItem.getCert());
                 if (responseIsSucess
-                        || (!responseIsSucess && !StringUtils.isEmpty(certItem.getSign()))) {
+                    || (!responseIsSucess && !StringUtils.isEmpty(certItem.getSign()))) {
                     signChecker = new DefaultSignChecker(alipayPublicKey);
                     boolean rsaCheckContent = signChecker.checkCert(certItem.getSignSourceDate(),
-                            certItem.getSign(), this.signType, this.charset, alipayPublicKey);
+                        certItem.getSign(), this.signType, this.charset, alipayPublicKey);
                     if (!rsaCheckContent) {
 
                         // 针对JSON \/问题，替换/后再尝试做一次验证
                         if (!StringUtils.isEmpty(certItem.getSignSourceDate())
-                                && certItem.getSignSourceDate().contains("\\/")) {
+                            && certItem.getSignSourceDate().contains("\\/")) {
                             String srouceData = certItem.getSignSourceDate().replace("\\/", "/");
 
                             boolean jsonCheck = getSignChecker().check(srouceData, certItem.getSign(),
-                                    this.signType, this.charset);
+                                this.signType, this.charset);
                             if (!jsonCheck) {
                                 throw new AlipayApiException(
-                                        "cert check fail: check Cert and Data Fail！JSON also！");
+                                    "cert check fail: check Cert and Data Fail！JSON also！");
                             }
                         } else {
 
@@ -489,7 +496,7 @@ public abstract class AbstractAlipayClient implements AlipayClient {
         String rsp = null;
         try {
             rsp = WebUtils.doPost(url, requestHolder.getApplicationParams(), charset,
-                    connectTimeout, readTimeout, proxyHost, proxyPort);
+                connectTimeout, readTimeout, proxyHost, proxyPort);
         } catch (IOException e) {
             throw new AlipayApiException(e);
         }
@@ -510,7 +517,7 @@ public abstract class AbstractAlipayClient implements AlipayClient {
      * @throws AlipayApiException
      */
     private <T extends AlipayResponse> RequestParametersHolder getRequestHolderWithSign(BatchAlipayRequest request)
-            throws AlipayApiException {
+        throws AlipayApiException {
 
         List<AlipayRequestWrapper> requestList = request.getRequestList();
         //校验接口列表非空
@@ -567,10 +574,10 @@ public abstract class AbstractAlipayClient implements AlipayClient {
             // 仅当API包含biz_content参数且值为空时，序列化bizModel填充bizContent
             try {
                 if (alipayRequest.getClass().getMethod("getBizContent") != null
-                        && StringUtils.isEmpty(appParams.get(AlipayConstants.BIZ_CONTENT_KEY))
-                        && alipayRequest.getBizModel() != null) {
+                    && StringUtils.isEmpty(appParams.get(AlipayConstants.BIZ_CONTENT_KEY))
+                    && alipayRequest.getBizModel() != null) {
                     apiParams.put(AlipayConstants.BIZ_CONTENT_KEY,
-                            new JSONWriter().write(alipayRequest.getBizModel(), true));
+                        new JSONWriter().write(alipayRequest.getBizModel(), true));
                 }
             } catch (NoSuchMethodException e) {
                 // 找不到getBizContent则什么都不做
@@ -599,7 +606,7 @@ public abstract class AbstractAlipayClient implements AlipayClient {
             }
 
             String encryptContent = getEncryptor().encrypt(
-                    appParams.get(AlipayConstants.BIZ_CONTENT_KEY), this.encryptType, this.charset);
+                appParams.get(AlipayConstants.BIZ_CONTENT_KEY), this.encryptType, this.charset);
 
             appParams.put(AlipayConstants.BIZ_CONTENT_KEY, encryptContent);
         }
@@ -610,7 +617,7 @@ public abstract class AbstractAlipayClient implements AlipayClient {
 
             String signContent = AlipaySignature.getSignatureContent(requestHolder);
             protocalMustParams.put(AlipayConstants.SIGN,
-                    getSigner().sign(signContent, this.signType, charset));
+                getSigner().sign(signContent, this.signType, charset));
 
         } else {
             protocalMustParams.put(AlipayConstants.SIGN, "");
@@ -728,17 +735,17 @@ public abstract class AbstractAlipayClient implements AlipayClient {
     private <T extends AlipayResponse> RequestParametersHolder getRequestHolderWithSign(AlipayRequest<?> request,
                                                                                         String accessToken,
                                                                                         String appAuthToken, String appCertSN)
-            throws AlipayApiException {
+        throws AlipayApiException {
         RequestParametersHolder requestHolder = new RequestParametersHolder();
         AlipayHashMap appParams = new AlipayHashMap(request.getTextParams());
 
         // 仅当API包含biz_content参数且值为空时，序列化bizModel填充bizContent
         try {
             if (request.getClass().getMethod("getBizContent") != null
-                    && StringUtils.isEmpty(appParams.get(AlipayConstants.BIZ_CONTENT_KEY))
-                    && request.getBizModel() != null) {
+                && StringUtils.isEmpty(appParams.get(AlipayConstants.BIZ_CONTENT_KEY))
+                && request.getBizModel() != null) {
                 appParams.put(AlipayConstants.BIZ_CONTENT_KEY,
-                        new JSONWriter().write(request.getBizModel(), true));
+                    new JSONWriter().write(request.getBizModel(), true));
             }
         } catch (NoSuchMethodException e) {
             // 找不到getBizContent则什么都不做
@@ -761,7 +768,7 @@ public abstract class AbstractAlipayClient implements AlipayClient {
             }
 
             String encryptContent = getEncryptor().encrypt(
-                    appParams.get(AlipayConstants.BIZ_CONTENT_KEY), this.encryptType, this.charset);
+                appParams.get(AlipayConstants.BIZ_CONTENT_KEY), this.encryptType, this.charset);
 
             appParams.put(AlipayConstants.BIZ_CONTENT_KEY, encryptContent);
         }
@@ -816,7 +823,7 @@ public abstract class AbstractAlipayClient implements AlipayClient {
 
             String signContent = AlipaySignature.getSignatureContent(requestHolder);
             protocalMustParams.put(AlipayConstants.SIGN,
-                    getSigner().sign(signContent, this.signType, charset));
+                getSigner().sign(signContent, this.signType, charset));
 
         } else {
             protocalMustParams.put(AlipayConstants.SIGN, "");
@@ -835,7 +842,7 @@ public abstract class AbstractAlipayClient implements AlipayClient {
         StringBuffer urlSb = new StringBuffer(serverUrl);
         try {
             String sysMustQuery = WebUtils.buildQuery(requestHolder.getProtocalMustParams(),
-                    charset);
+                charset);
             String sysOptQuery = WebUtils.buildQuery(requestHolder.getProtocalOptParams(), charset);
 
             urlSb.append("?");
@@ -959,7 +966,7 @@ public abstract class AbstractAlipayClient implements AlipayClient {
                                                                   String appAuthToken, String appCertSN) throws AlipayApiException {
         Map<String, Object> result = new HashMap<String, Object>();
         RequestParametersHolder requestHolder = getRequestHolderWithSign(request, accessToken,
-                appAuthToken, appCertSN);
+            appAuthToken, appCertSN);
 
         String url = getRequestUrl(requestHolder);
 
@@ -975,10 +982,10 @@ public abstract class AbstractAlipayClient implements AlipayClient {
                 AlipayUploadRequest<T> uRequest = (AlipayUploadRequest<T>) request;
                 Map<String, FileItem> fileParams = AlipayUtils.cleanupMap(uRequest.getFileParams());
                 rsp = WebUtils.doPost(url, requestHolder.getApplicationParams(), fileParams,
-                        charset, connectTimeout, readTimeout, proxyHost, proxyPort);
+                    charset, connectTimeout, readTimeout, proxyHost, proxyPort);
             } else {
                 rsp = WebUtils.doPost(url, requestHolder.getApplicationParams(), charset,
-                        connectTimeout, readTimeout, proxyHost, proxyPort);
+                    connectTimeout, readTimeout, proxyHost, proxyPort);
             }
         } catch (SSLException e) {
             if (e.getMessage().contains("the trustAnchors parameter must be non-empty")) {
@@ -1021,25 +1028,25 @@ public abstract class AbstractAlipayClient implements AlipayClient {
             }
 
             if (responseIsSucess
-                    || (!responseIsSucess && !StringUtils.isEmpty(signItem.getSign()))) {
+                || (!responseIsSucess && !StringUtils.isEmpty(signItem.getSign()))) {
 
                 boolean rsaCheckContent = getSignChecker().check(signItem.getSignSourceDate(),
-                        signItem.getSign(), this.signType, this.charset);
+                    signItem.getSign(), this.signType, this.charset);
 
                 if (!rsaCheckContent) {
 
                     // 针对JSON \/问题，替换/后再尝试做一次验证
                     if (!StringUtils.isEmpty(signItem.getSignSourceDate())
-                            && signItem.getSignSourceDate().contains("\\/")) {
+                        && signItem.getSignSourceDate().contains("\\/")) {
 
                         String srouceData = signItem.getSignSourceDate().replace("\\/", "/");
 
                         boolean jsonCheck = getSignChecker().check(srouceData, signItem.getSign(),
-                                this.signType, this.charset);
+                            this.signType, this.charset);
 
                         if (!jsonCheck) {
                             throw new AlipayApiException(
-                                    "sign check fail: check Sign and Data Fail！JSON also！");
+                                "sign check fail: check Sign and Data Fail！JSON also！");
                         }
                     } else {
 
@@ -1073,7 +1080,7 @@ public abstract class AbstractAlipayClient implements AlipayClient {
 
             // 解密原始串
             realBody = parser.decryptSourceData(request, responseBody, this.format,
-                    getDecryptor(), this.encryptType, this.charset);
+                getDecryptor(), this.encryptType, this.charset);
         } else {
 
             // 解析原内容串
