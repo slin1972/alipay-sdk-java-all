@@ -22,15 +22,15 @@ public class CertAlipayRequest {
 
 
     public void setAlipayPublicCert(String alipayPublicCert) {
-        this.alipayPublicCertPath = "content: " + alipayPublicCert;
+        this.alipayPublicCertPath = "content:" + alipayPublicCert;
     }
 
     public void setRootCert(String rootCert) {
-        this.rootCertPath = "content: " + rootCert;
+        this.rootCertPath = "content:" + rootCert;
     }
 
     public void setCert(String cert) {
-        this.certPath = "content: " + cert;
+        this.certPath = "content:" + cert;
     }
 
     public String getServerUrl() {
